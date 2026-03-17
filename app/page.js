@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { MEETINGS, STATUS_LABELS } from './data';
 
 const STORAGE_KEY = 'eth-cc-briefings-v1';
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbyClgI5MOfjq0Lq6uxkK0BlBDhjF33fqLZw2BXKITYmP_F1styjvoTb3v2lUUH6ZfK0/exec';
 
 function loadSubmissions() {
   if (typeof window === 'undefined') return {};
@@ -15,6 +16,35 @@ function loadSubmissions() {
 
 function saveSubmissions(data) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+}
+
+async function sendToSheets(meeting, formData) {
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        company: meeting.company,
+        priority: meeting.priority,
+        status: meeting.status === 'green' ? 'CBO Confirmed' : meeting.status === 'yellow' ? 'Awaiting' : 'Not Meeting',
+        owner: meeting.owner,
+        exec: meeting.exec,
+        authorName: formData.authorName,
+        cllAttendees: formData.cllAttendees,
+        externalGuests: formData.externalGuests,
+        accountContext: formData.accountContext,
+        whatDoTheyCare: formData.whatDoTheyCare,
+        meetingObjectives: formData.meetingObjectives,
+        useCaseForCRE: formData.useCaseForCRE,
+        otherProducts: formData.otherProducts,
+        emailOutreach: formData.emailOutreach,
+        additionalNotes: formData.additionalNotes,
+      }),
+    });
+  } catch (err) {
+    console.error('Failed to send to Google Sheets:', err);
+  }
 }
 
 export default function Home() {
@@ -61,7 +91,7 @@ export default function Home() {
     window.scrollTo(0, 0);
   }, [submissions]);
 
-  const saveBriefing = () => {
+  const saveBriefing = async () => {
     if (!selectedMeeting) return;
     setSaving(true);
     const updated = {
@@ -70,8 +100,9 @@ export default function Home() {
     };
     saveSubmissions(updated);
     setSubmissions(updated);
+    await sendToSheets(selectedMeeting, formData);
     setSaving(false);
-    setSavedMsg('Saved successfully');
+    setSavedMsg('Saved successfully — sent to tracker');
     setTimeout(() => setSavedMsg(''), 2500);
   };
 
@@ -293,3 +324,4 @@ function Field({ label, value, onChange, placeholder, textarea, rows, helpText, 
     </div>
   );
 }
+
